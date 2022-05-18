@@ -1,6 +1,12 @@
 $share_path = "\\tsclient\mona-share\"
 $install_dir = "C:\Users\Offsec\Desktop\install-mona"
 
+if((Get-WmiObject Win32_OperatingSystem).OSArchitecture = "64-bit"){
+    $program_files = "C:\Program Files (x86)"
+} else {
+    $program_files = "C:\Program Files"
+}
+
 echo "[+] creating installation directory: $install_dir"
 mkdir $install_dir
 
@@ -12,8 +18,8 @@ cd $install_dir
 start-sleep 10
 
 echo "[+] backing up old pykd files"
-move "C:\Program Files\Windows Kits\10\Debuggers\x86\winext\pykd.pyd" "C:\Program Files\Windows Kits\10\Debuggers\x86\winext\pykd.pyd.bak"
-move "C:\Program Files\Windows Kits\10\Debuggers\x86\winext\pykd.dll" "C:\Program Files\Windows Kits\10\Debuggers\x86\winext\pykd.dll.bak"
+move "$program_files\Windows Kits\10\Debuggers\x86\winext\pykd.pyd" "$program_files\Windows Kits\10\Debuggers\x86\winext\pykd.pyd.bak"
+move "$program_files\Windows Kits\10\Debuggers\x86\winext\pykd.dll" "$program_files\Windows Kits\10\Debuggers\x86\winext\pykd.dll.bak"
 
 # install python2.7
 
@@ -27,16 +33,19 @@ echo "[+] adding python2.7 to the PATH"
 $p = [System.Environment]::GetEnvironmentVariable('Path',[System.EnvironmentVariableTarget]::User)
 [System.Environment]::SetEnvironmentVariable('Path',"C:\Python27\;C:\Python27\Scripts;"+$p,[System.EnvironmentVariableTarget]::User)
 
+echo "[+] Installing pykd with pip"
+pip install pykd
+
 # copy mona files
 echo "[+] bringing over mona files and fresh pykd"
-copy "$share_path\windbglib.py" "C:\Program Files\Windows Kits\10\Debuggers\x86"
-copy "$share_path\mona.py" "C:\Program Files\Windows Kits\10\Debuggers\x86"
-copy "$share_path\pykd.pyd" "C:\Program Files\Windows Kits\10\Debuggers\x86\winext"
+copy "$share_path\windbglib.py" "$program_files\Windows Kits\10\Debuggers\x86"
+copy "$share_path\mona.py" "$program_files\Windows Kits\10\Debuggers\x86"
+copy "$share_path\pykd.pyd" "$program_files\Windows Kits\10\Debuggers\x86\winext"
 
 # register runtime debug dll
 echo "[+] registering runtime debug dll"
-cd "C:\Program Files\Common Files\Microsoft Shared\VC"
+cd "$program_files\Common Files\Microsoft Shared\VC"
 regsvr32 /s msdia90.dll
 
 echo "[=] in case you see something about symbols when running mona, try executing the following (the runtime took too long to install)"
-echo "regsvr32 "C:\Program Files\Common Files\Microsoft Shared\VC\msdia90.dll"
+echo 'regsvr32 "$program_files\Common Files\Microsoft Shared\VC\msdia90.dll"'
