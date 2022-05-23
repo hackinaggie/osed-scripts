@@ -38,8 +38,8 @@ class AddrResolver():
 
     def get_kernel32_iat_entries(self):
         result = pykd.dbgCommand('dps {} {}'.format(
-            hex(self.image_base + self.iat_offset)[:-1], # start
-            hex(self.image_base + self.iat_offset + self.iat_size))[:-1] # end
+            hex(self.image_base + self.iat_offset).rstrip("L"), # start
+            hex(self.image_base + self.iat_offset + self.iat_size)).rstrip("L") # end
         )
         lines = self.find_lines_containing(result.splitlines(), 'KERNEL32!')
         self.entries = self.proc_iat_entries([line.split() for line in lines])
@@ -88,7 +88,7 @@ def main():
     print('[+] {} ({} resolved)'.format(hex(resolver.entries[resolver.alt_entry]['resolved']), resolver.alt_entry[9:]))
     print('[+] {} ({} resolved)'.format(hex(resolver.va_resolved), args.func))
     print('[+] {} (offset = {} - {})'.format(hex(diff), args.func, resolver.alt_entry[9:]))
-    print('[+] {} (negative)'.format(hex(neg)[:-1]))
+    print('[+] {} (negative)'.format(hex(neg).rstrip("L")))
 
 if __name__ == '__main__':
     main()
