@@ -1,6 +1,11 @@
 import argparse
-import pykd 
-import sys
+
+try:
+    import pykd 
+    pykd.getFrame()
+except:
+    print("Do not run outside WinDBG")
+    exit(1)
 
 class AddrResolver():
 
