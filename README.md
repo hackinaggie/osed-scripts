@@ -1,17 +1,20 @@
 # osed-scripts
 bespoke tooling for offensive security's Windows Usermode Exploit Dev course (OSED)
 
-## Table of Contents
 
-- [Standalone Scripts](#standalone-scripts)
+- [osed-scripts](#osed-scripts)
+  - [Standalone Scripts](#standalone-scripts)
+    - [Installation:](#installation)
     - [egghunter.py](#egghunterpy)
     - [find-gadgets.py](#find-gadgetspy)
     - [shellcoder.py](#shellcoderpy)
     - [install-mona.sh](#install-monash)
     - [attach-process.ps1](#attach-processps1)
-- [WinDbg Scripts](#windbg-scripts)
+  - [WinDbg Scripts](#windbg-scripts)
     - [find-ppr.py](#find-pprpy)
     - [find-bad-chars.py](#find-bad-charspy)
+      - [--address example](#--address-example)
+      - [--generate example](#--generate-example)
     - [search.py](#searchpy)
 
 ## Standalone Scripts
@@ -100,7 +103,7 @@ optional arguments:
 
 find gadgets in multiple files (one is loaded at a different offset than what the dll prefers) and omit `0x0a` and `0x0d` from all gadgets
 
-![gadgets](img/gadgets.png)
+![gadgets](rsrc/gadgets.png)
 
 ### shellcoder.py
 
@@ -231,7 +234,7 @@ Credit to @netspooky for the rewrite of this script!
 Search for `pop r32; pop r32; ret` instructions by module name. By default it only shows usable addresses without bad chars defined in the BADCHARS list on line 6.
 Printed next to the gadgets is an escaped little endian address for pasting into your shellcode.
 
-    0:000> !py find-ppr_ns.py -b 00 0A 0D -m libspp libsync
+    0:000> !py find-ppr.py -b 00 0A 0D -m libspp libsync
     [+] searching libsync for pop r32; pop r32; ret
     [+] BADCHARS: \x00\x0A\x0D
     [+] libsync: Found 0 usable gadgets!
@@ -255,7 +258,7 @@ Printed next to the gadgets is an escaped little endian address for pasting into
 
 Show all gadgets with the `-s` flag. 
 
-    0:000> !py find-ppr_ns.py -b 00 0A 0D -m libspp libsync -s
+    0:000> !py find-ppr.py -b 00 0A 0D -m libspp libsync -s
     [+] searching libsync for pop r32; pop r32; ret
     [+] BADCHARS: \x00\x0A\x0D
     [--] libsync::0x0096add0: pop eax; pop ebx; ret ; \xD0\xAD\x96\x00

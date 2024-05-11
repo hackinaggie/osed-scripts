@@ -1,4 +1,13 @@
 ﻿<#
+.SYNOPSIS
+    Automate attaching windbg to `process_name`.
+.DESCRIPTION
+    One-shot script to perform the following actions:
+        - start a given service (if -service-name is provided)
+        - start a given executable path (if -path is provided)
+        - start windbg and attach to the given process
+        - run windbg commands after attaching (if -commands is provided)
+        - restart a given service when windbg exits (if -service-name is provided)
 .PARAMETER service_name
     Service to restart (optional)
 .PARAMETER path
@@ -17,7 +26,7 @@ param (
     [Parameter()]
     [ValidateNotNullOrEmpty()]
     [string]
-    $commands
+    $commands = ".load pykd;g "
 )
 
 DynamicParam {
@@ -115,11 +124,8 @@ process {
     }
     
     write-host "[+] Attaching to $process_name"
-    if((Get-WmiObject Win32_OperatingSystem).OSArchitecture = "64-bit") {
-        start-process -wait -filepath "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\windbg.exe" -verb RunAs -argumentlist $cmd_args
-    } else {
-        start-process -wait -filepath "C:\Program Files\Windows Kits\10\Debuggers\x86\windbg.exe" -verb RunAs -argumentlist $cmd_args
-    }
+    start-process -wait -filepath "C:\Program Files\Windows Kits\10\Debuggers\x86\windbg.exe" -verb RunAs -argumentlist $cmd_args
+   
     if ($service_name) {
         Do {
             # restart the service once we detach from windbg

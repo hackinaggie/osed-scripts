@@ -104,7 +104,7 @@ def find_bad_chars(args):
 
 
 def generate_byte_string(args):
-    known_bad = ", ".join(f'{x:02X}' for x in args.bad)
+    known_bad = ", ".join(f'0x{x:02X}' for x in args.bad)
     var_str = f"chars = bytes(i for i in range({args.start}, {args.end + 1}) if i not in [{known_bad}])"
 
     print("[+] characters as a range of bytes")
@@ -115,26 +115,26 @@ def generate_byte_string(args):
     # deliberately not using enumerate since it may not execute in certain situations depending on user input for the
     # range bounds
     counter = 0
-
+    out = ''
     for i in range(args.start, args.end + 1):
         if i in args.bad:
             continue
 
         if i == args.start:
             # first byte
-            print(f"chars  = b'\\x{i:02X}", end="")
+            out += f"chars  = b'\\x{i:02X}"
         elif counter % 16 == 0:
             # start a new line
-            print("'")
-            print(f"chars += b'\\x{i:02X}", end="")
+            out+='\'\n'
+            out += f"chars += b'\\x{i:02X}"
         else:
-            print(f"\\x{i:02X}", end="")
+            out += f"\\x{i:02X}"
 
         counter += 1
 
-    if counter % 16 != 0 and counter != 0:
-        print("'")
-
+    if not out.endswith("'"):
+        out = out+"'"
+    print(out)
 
 def main(args):
     if args.address is not None:
