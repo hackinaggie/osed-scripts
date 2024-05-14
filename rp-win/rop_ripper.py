@@ -31,6 +31,8 @@ worthy_regexes = [
     r"sub ..., ...",
     r"pop ...",
     # r"add ..., 0x[a-f0-9]{1,8}",  # This tends to find a lot...
+    r"push ...",
+    r"pushad ..."
 ]
 
 for index, regex in enumerate(worthy_regexes):

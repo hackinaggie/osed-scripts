@@ -18,7 +18,6 @@ bespoke tooling for offensive security's Windows Usermode Exploit Dev course (OS
     - [search.py](#searchpy)
   - [rsrc/](#rsrc)
   - [rp-win/](#rp-win)
-  - [misc/](#misc)
 
 With the addition of [`download-osed-scripts.bat`](./download-osed-scripts.bat), you can copy all the important files to the target so that you don't get that network latency everytime you run a script!
 
@@ -396,6 +395,3 @@ Directory containing useful resources.
 
 Directory containing a compiled 32+64-bit rp++, **newest version**! Also, a script ([ropripper.py](./rp-win/rop_ripper.py)) to parse the output from rp++ that has been written to a file.
 
-## misc/
-
-Directory where you can put random files that you download/upload from/to the target machine. Can put files you don't want to track here.
