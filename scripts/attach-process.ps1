@@ -107,7 +107,7 @@ begin {
      
 }
 process {
-    $process = Get-Process $process_name
+    $process = Get-Process $process_name | Select-Object -First 1
 
     if (-not $process) {
         Write-Host "[-] Killing $pathproc"

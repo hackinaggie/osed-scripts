@@ -16,6 +16,22 @@ bespoke tooling for offensive security's Windows Usermode Exploit Dev course (OS
       - [--address example](#--address-example)
       - [--generate example](#--generate-example)
     - [search.py](#searchpy)
+  - [rsrc/](#rsrc)
+  - [rp-win/](#rp-win)
+  - [misc/](#misc)
+
+With the addition of [`download-osed-scripts.bat`](./download-osed-scripts.bat), you can copy all the important files to the target so that you don't get that network latency everytime you run a script!
+
+Now, your connecting flow can be as easy as connecting from your box:
+```sh
+$ ./rdp_share.sh
+```
+Then running the download script from an Admin console on the target:
+```bat
+\\tsclient\osed-scripts\download-osed-scripts.bat
+```
+
+Check commit history for other changes.
 
 ## Standalone Scripts
 ### Installation:
@@ -371,3 +387,15 @@ optional arguments:
 01763892  66 66 66 66 66 66 66 66-66 66 66 66 66 66 66 66  ffffffffffffffff
 ...
 ```
+
+## rsrc/
+
+Directory containing useful resources.
+
+## rp-win/
+
+Directory containing a compiled 32+64-bit rp++, **newest version**! Also, a script ([ropripper.py](./rp-win/rop_ripper.py)) to parse the output from rp++ that has been written to a file.
+
+## misc/
+
+Directory where you can put random files that you download/upload from/to the target machine. Can put files you don't want to track here.
