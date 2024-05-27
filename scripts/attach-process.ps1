@@ -124,8 +124,12 @@ process {
     }
     
     write-host "[+] Attaching to $process_name"
-    start-process -wait -filepath "C:\Program Files\Windows Kits\10\Debuggers\x86\windbg.exe" -verb RunAs -argumentlist $cmd_args
-   
+    try {
+        start-process -wait -filepath "C:\Program Files\Windows Kits\10\Debuggers\x86\windbg.exe" -verb RunAs -argumentlist $cmd_args
+    } catch {
+        start-process -wait -filepath "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\windbg.exe" -verb RunAs -argumentlist $cmd_args
+    }
+
     if ($service_name) {
         Do {
             # restart the service once we detach from windbg

